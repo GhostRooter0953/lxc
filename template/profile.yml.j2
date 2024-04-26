@@ -1,0 +1,25 @@
+config:
+  boot.autostart: "{{ item.autostart }}"
+  boot.autostart.delay: "{{ item.delay }}"
+  limits.cpu:  "{{ item.cpu }}"
+  limits.memory: "{{ item.mem }}"
+  security.privileged: "{{ item.privileged | default(false) }}"
+  security.nesting: "{{ item.nesting | default(false) }}"
+description: "{{ item.description }}"
+devices:
+  eth0:
+    hwaddr: "{{ item.mac }}"
+    ipv4.address: "{{ item.ip }}"
+    name: eth0
+    network: lxdbr0
+    type: nic
+  home_dir:
+    path: /home
+    source: /mnt/data/containers/{{ item.name }}/home
+    type: disk
+  root:
+    path: /
+    pool: default
+    type: disk
+name: "{{ item.profile }}"
+used_by: []

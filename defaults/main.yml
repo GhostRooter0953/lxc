@@ -1,0 +1,15 @@
+---
+persistent: 'no_sync'
+src_data_host: 'localhost:'
+src_cfg: 'files/'
+src_template: 'template/'
+mount_path: '/mnt/data/containers'
+mount_dirs:
+  - /dir1
+  - /dir2
+lxc_profile_name:
+  - {name: "container1", profile: "container1", ip: "10.10.10.10", mac: "14:08:14:08:14:08", mem: "256MiB", cpu: "1", autostart: "true", delay: "15", description: "LXD profile for container1"}
+  - {name: "container2", profile: "container2", privileged: "true", nesting: "true", ip: "10.10.10.20", mac: "24:08:24:08:24:08", mem: "512MiB", cpu: "1", autostart: "true", delay: "15", description: "LXD profile for container2"}
+lxc_container_name:
+  - {name: "container1", image: "ubuntu-minimal", version: ":jammy", profile: "container1"}
+  - {name: "container2", image: "ubuntu-minimal", version: ":jammy", profile: "container2"}

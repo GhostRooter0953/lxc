@@ -1,0 +1,103 @@
+---
+- name: Check lxd storage status
+  shell: lxc storage ls -f compact | sed '1d' | grep "CREATED"
+  register: storage_status
+  failed_when: false
+
+- name: Ensure deps installed
+  apt:
+    pkg:
+      - snapd
+      - python3-pexpect
+  when: storage_status.rc != 0
+
+- name: Ensure LXD installed
+  snap:
+    name: lxd
+    classic: yes
+    state: present
+  when: storage_status.rc != 0
+
+- name: Ensure LXD directory exists
+  file:
+    path: /var/tmp/lxd
+    state: directory
+    mode: '0755'
+
+- name: Copy LXD config
+  copy:
+    src: "{{ src_cfg }}"
+    dest: /var/tmp/lxd/preseed.yml
+
+- name: Running LXD init
+  shell: lxd init --preseed < /var/tmp/lxd/preseed.yml
+  when: storage_status.rc != 0
+
+- name: Check 'ubuntu-minimal' repo in lxc remote
+  shell: lxc remote ls | grep -o ubuntu-minimal
+  register: remote_list
+  failed_when: false
+
+- name: Add 'ubuntu-minimal' repo in lxc remote
+  shell: lxc remote add ubuntu-minimal https://cloud-images.ubuntu.com/minimal/releases --protocol=simplestreams
+  when: remote_list.rc != 0
+
+- name: Get list of necessary directories
+  command: find "{{ mount_path }}" -type d
+  register: dirs
+  changed_when: false
+
+- name: Create necessary subdirectories for each container
+  file:
+    path: "{{ mount_path }}/{{ item[0].name }}{{ item[1] }}"
+    state: directory
+    owner: "1000000"
+    group: "1000000"
+  loop: "{{ lxc_container_name | product(mount_dirs) | list }}"
+  when: mount_path + '/' + item[0].name + item[1] not in dirs.stdout_lines
+
+- name: Copy mount persistent data
+  shell: "ls {{ mount_path }}/{{ item }} || rsync -aP --numeric-ids {{ src_data_host }}{{ mount_path }}/{{ item }} {{ mount_path }}/"
+  when:
+    - persistent == 'sync'
+  loop: "{{ lxc_container_name }}"
+  failed_when: false
+
+- name: Get list of existing LXC profiles
+  command: lxc profile list --format csv
+  register: profiles
+  changed_when: false
+
+- name: Copy LXC profiles from template if they don't exists
+  template:
+    src: "{{ src_template }}"
+    dest: "/var/tmp/lxd/{{ item.profile }}.yml"
+  loop: "{{ lxc_profile_name }}"
+  when: "item.profile not in profiles.stdout"
+
+- name: Create lxc profiles
+  shell: lxc profile create {{ item.profile }} && lxc profile edit {{ item.profile }} < /var/tmp/lxd/{{ item.profile }}.yml
+  loop: "{{ lxc_profile_name }}"
+  when: "item.profile not in profiles.stdout"
+
+- name: Launch absent containers
+  shell: lxc info {{ item.name }} || lxc launch {{ item.image }}{{ item.version }} {{ item.name }} --profile {{ item.profile }}
+  loop: "{{ lxc_container_name }}"
+
+- name: Remove temp files
+  file:
+    path: /var/tmp/lxd
+    state: absent
+  failed_when: false
+
+- name: Check containers status
+  shell: lxc info {{ item.name }} | grep -o 'RUNNING'
+  register: container_status
+  loop: "{{ lxc_container_name }}"
+  failed_when: false
+
+- name: List failed containers
+  debug:
+    msg: "The container {{ item.item.name }} failed to start."
+  loop: "{{ container_status.results }}"
+  when: "'RUNNING' not in item.stdout"
