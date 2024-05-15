@@ -1,8 +1,8 @@
 ---
 persistent: 'no_sync'
 src_data_host: 'localhost:'
-src_cfg: 'files/'
-src_template: 'template/'
+preseed_template: 'templates/preseed.yml.j2'
+profile_template: 'templates/profile.yml.j2'
 mount_path: '/mnt/data/containers'
 mount_dirs:
   - /dir1

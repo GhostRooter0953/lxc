@@ -1,10 +1,10 @@
 config:
   images.auto_update_interval: "15"
 networks:
-- name: lxdbr0
+- name: "{{ lxd_net_name | default('lxdbr0') }}"
   type: bridge
   config:
-    ipv4.address: 10.10.10.1/24
+    ipv4.address: "{{ lxd_net_gateway | default('10.10.10.1/24') }}"
     ipv4.nat: true
     ipv6.address: none
 storage_pools:

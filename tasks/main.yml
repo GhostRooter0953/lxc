@@ -18,6 +18,12 @@
     state: present
   when: storage_status.rc != 0
 
+- name: Ensure mnt directory exists
+  file:
+    path: /mnt/data/containers
+    state: directory
+    mode: '0755'
+
 - name: Ensure LXD directory exists
   file:
     path: /var/tmp/lxd
@@ -25,8 +31,8 @@
     mode: '0755'
 
 - name: Copy LXD config
-  copy:
-    src: "{{ src_cfg }}"
+  template:
+    src: "{{ preseed_template }}"
     dest: /var/tmp/lxd/preseed.yml
 
 - name: Running LXD init
@@ -70,7 +76,7 @@
 
 - name: Copy LXC profiles from template if they don't exists
   template:
-    src: "{{ src_template }}"
+    src: "{{ profile_template }}"
     dest: "/var/tmp/lxd/{{ item.profile }}.yml"
   loop: "{{ lxc_profile_name }}"
   when: "item.profile not in profiles.stdout"
