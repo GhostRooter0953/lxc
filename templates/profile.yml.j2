@@ -1,25 +1,27 @@
 config:
-  boot.autostart: "{{ item.autostart | default(true) }}"
-  boot.autostart.delay: "{{ item.delay | default('8') }}"
-  limits.cpu:  "{{ item.cpu | default('1') }}"
-  limits.memory: "{{ item.mem | default('512MiB') }}"
-  security.privileged: "{{ item.privileged | default(false) }}"
-  security.nesting: "{{ item.nesting | default(false) }}"
-description: "{{ item.description }}"
+  boot.autostart: "{{ item.value.autostart | default(true) }}"
+  boot.autostart.delay: "{{ item.value.delay | default('8') }}"
+  limits.cpu:  "{{ item.value.cpu | default('1') }}"
+  limits.memory: "{{ item.value.mem | default('512MiB') }}"
+  security.privileged: "{{ item.value.privileged | default(false) }}"
+  security.nesting: "{{ item.value.nesting | default(false) }}"
+description: "{{ item.value.description }}"
 devices:
   eth0:
-    hwaddr: "{{ item.mac }}"
-    ipv4.address: "{{ item.ip }}"
+    hwaddr: "{{ item.value.mac }}"
+    ipv4.address: "{{ item.value.ip }}"
     name: eth0
-    network: "{{ lxd_net_name | default('lxdbr0') }}"
+    network: {{ lxd_net_name | default('lxdbr0') }}
     type: nic
   root:
     path: /
     pool: default
     type: disk
-  root_ssh:
-    path: /root/.ssh
-    source: "{{ mount_path }}"/{{ item.name }}/root/.ssh
+{% for mount in item.value.mount %}
+  {{ mount.name }}:
+    path: {{ mount.path }}
+    source: {{ mount_path }}/{{ item.value.name }}{{ mount.source }}
     type: disk
-name: "{{ item.profile }}"
+{% endfor %}
+name: {{ item.value.profile }}
 used_by: []

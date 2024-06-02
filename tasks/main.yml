@@ -55,19 +55,12 @@
 
 - name: Create necessary subdirectories for each container
   file:
-    path: "{{ mount_path }}/{{ item[0].name }}{{ item[1] }}"
+    path: "{{ mount_path }}/{{ item.value.name }}{{ item.value.mount[0].source }}"
     state: directory
     owner: "1000000"
     group: "1000000"
-  loop: "{{ lxc_container_name | product(mount_dirs) | list }}"
-  when: mount_path + '/' + item[0].name + item[1] not in dirs.stdout_lines
-
-- name: Copy mount persistent data
-  shell: "ls {{ mount_path }}/{{ item }} || rsync -aP --numeric-ids {{ src_data_host }}{{ mount_path }}/{{ item }} {{ mount_path }}/"
-  when:
-    - persistent == 'sync'
-  loop: "{{ lxc_container_name }}"
-  failed_when: false
+  loop: "{{ lxc_containers | dict2items }}"
+  when: mount_path + '/' + item.value.name + item.value.mount[0].source not in dirs.stdout_lines
 
 - name: Get list of existing LXC profiles
   command: lxc profile list --format csv
@@ -77,18 +70,18 @@
 - name: Copy LXC profiles from template if they don't exists
   template:
     src: "{{ profile_template }}"
-    dest: "/var/tmp/lxd/{{ item.profile }}.yml"
-  loop: "{{ lxc_profile_name }}"
-  when: "item.profile not in profiles.stdout"
+    dest: "/var/tmp/lxd/{{ item.value.profile }}.yml"
+  loop: "{{ lxc_containers | dict2items }}"
+  when: "item.value.profile not in profiles.stdout"
 
 - name: Create lxc profiles
-  shell: lxc profile create {{ item.profile }} && lxc profile edit {{ item.profile }} < /var/tmp/lxd/{{ item.profile }}.yml
-  loop: "{{ lxc_profile_name }}"
-  when: "item.profile not in profiles.stdout"
+  shell: lxc profile create {{ item.value.profile }} && lxc profile edit {{ item.value.profile }} < /var/tmp/lxd/{{ item.value.profile }}.yml || lxc profile delete {{ item.value.profile }}
+  loop: "{{ lxc_containers | dict2items }}"
+  when: "item.value.profile not in profiles.stdout"
 
-- name: Launch absent containers
-  shell: lxc info {{ item.name }} || lxc launch {{ item.image }}{{ item.version }} {{ item.name }} --profile {{ item.profile }}
-  loop: "{{ lxc_container_name }}"
+- name: Launch new containers
+  shell: lxc info {{ item.value.name }} || lxc launch {{ item.value.image }}{{ item.value.version }} {{ item.value.name }} --profile {{ item.value.profile }}
+  loop: "{{ lxc_containers | dict2items }}"
 
 - name: Remove temp files
   file:
@@ -97,13 +90,13 @@
   failed_when: false
 
 - name: Check containers status
-  shell: lxc info {{ item.name }} | grep -o 'RUNNING'
+  shell: lxc info {{ item.value.name }} | grep -o 'RUNNING'
   register: container_status
-  loop: "{{ lxc_container_name }}"
+  loop: "{{ lxc_containers | dict2items }}"
   failed_when: false
 
 - name: List failed containers
   debug:
-    msg: "The container {{ item.item.name }} failed to start."
+    msg: "The container {{ item.item.value.name }} failed to start."
   loop: "{{ container_status.results }}"
   when: "'RUNNING' not in item.stdout"
